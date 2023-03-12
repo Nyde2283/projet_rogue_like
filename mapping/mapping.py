@@ -67,7 +67,7 @@ class Map_Base:
         self.height = height
         self.minRoomSize = minRoomSize
         self.marge = marge
-        self.minSize = minRoomSize +marge
+        self.minSize = minRoomSize +marge*2
         self.leftChild = None
         self.rightChild = None
         self.room: Room = None
@@ -115,18 +115,18 @@ class Map_Base:
             self.leftChild.create_rooms()
             self.rightChild.create_rooms()
         else:
-            # la taille d'une room varie de minRoomSize x minRoomSize à la taille de la Map_base -2
-            roomWidth = randint(self.minRoomSize, self.width -2)
-            roomHeight = randint(self.minRoomSize, self.height -2)
+            # la taille d'une room varie de minRoomSize x minRoomSize à la taille de la Map_base - la marge
+            roomWidth = randint(self.minRoomSize, self.width - self.marge*2)
+            roomHeight = randint(self.minRoomSize, self.height - self.marge*2)
             # place la map de façon à ce qu'elle ne colle pas les bords de la Map_Base
-            roomX = randint(1, self.width - roomWidth)
-            roomY = randint(1, self.height - roomHeight)
+            roomX = randint(self.marge, self.width - roomWidth - self.marge)
+            roomY = randint(self.marge, self.height - roomHeight - self.marge)
 
             self.room = Room(self.x + roomX, self.y + roomY, roomWidth, roomHeight)
 
 class Map:
 
-    def __init__(self, width: int, height: int, minRoomSize: int = 4, maxRoomSize: int = 10, marge: int = 4) -> None:
+    def __init__(self, width: int, height: int, minRoomSize: int = 4, maxRoomSize: int = 10, marge: int = 1) -> None:
         """Représente la map d'un niveau.
 
         Args:
@@ -141,8 +141,8 @@ class Map:
         self.height = height
         self.minRoomSize = minRoomSize
         self.maxRoomSize = maxRoomSize
-        self.minSize = minRoomSize +marge
-        self.maxSize = maxRoomSize +2
+        self.minSize = minRoomSize +marge*2
+        self.maxSize = maxRoomSize +marge
         assert self.maxSize > self.minSize and width > self.maxSize and height > self.maxSize
 
         self.root = Map_Base(0, 0, width, height, self.minRoomSize, marge)
