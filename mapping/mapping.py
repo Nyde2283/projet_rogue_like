@@ -5,6 +5,14 @@ from random import random, randint
 class Rectangle:
 
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
+        """Représente une forme rectangulaire basique.
+
+        Args:
+            - x (int): abscisse du rectangle
+            - y (int): ordonnée du rectangle
+            - width (int): largeur du rectangle
+            - height (int): hauteur du rectangle
+        """
 
         self.x = x
         self.y = y
@@ -24,6 +32,14 @@ class Rectangle:
 class Room(Rectangle):
 
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
+        """Représente une salle contenue dans une `Map_Base`.
+
+        Args:
+            - x (int): abscisse de la salle
+            - y (int): ordonnée de la salle
+            - width (int): largeur de la salle
+            - height (int): hauteur de la salle
+        """
 
         super().__init__(x, y, width, height)
 
@@ -39,7 +55,8 @@ class Map_Base:
             - y (int): ordonnée de la section
             - width (int): largeur de la section
             - height (int): hauteur de la section
-            - minSize (int): taille (largeur ou hauteur) minimale d'une section
+            - minRoomSize (int): taille (largeur ou hauteur) minimale d'une salle contenue dans une section
+            - marge (int): espace entre une salle et le bord d'une section
         """
 
         self.x = x
@@ -56,7 +73,7 @@ class Map_Base:
         self.room: Room = None
     
     def split(self) -> bool:
-        """Sépare self en deux Map_Base qui deviennent ses noeuds enfants si cela est possible.
+        """Sépare self en deux Map_Base (sections) qui deviennent ses noeuds enfants si cela est possible.
 
         Returns:
             - bool: split réussi
@@ -91,6 +108,8 @@ class Map_Base:
         return True
 
     def create_rooms(self):
+        """Génère les salles de la Map_Base ou de ses enfants.
+        """
 
         if self.leftChild != None:
             self.leftChild.create_rooms()
@@ -111,10 +130,11 @@ class Map:
         """Représente la map d'un niveau.
 
         Args:
-            width (int): largeur de la map
-            height (int): hauteur de la map
-            minSize (int): taille (largeur ou hauteur) minimale d'une section de la map
-            maxSize (int): taille (largeur ou hauteur) maximale d'une section de la map
+            - width (int): largeur de la map
+            - height (int): hauteur de la map
+            - minRoomSize (int): taille (largeur ou hauteur) minimale d'une salle contenue dans une section
+            - maxRoomSize (int): taille (largeur ou hauteur) maximale d'une salle contenue dans une section
+            - marge (int): espace entre une salle et le bord d'une section
         """
 
         self.width = width
