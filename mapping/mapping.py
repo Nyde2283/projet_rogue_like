@@ -14,6 +14,7 @@ class Rectangle:
             - height (int): hauteur du rectangle
         """
 
+        assert x>=0 and y>=0 and width>=0 and height>=0
         self.x = x
         self.y = y
         self.right = x + width -1
@@ -43,7 +44,7 @@ class Room(Rectangle):
 
         super().__init__(x, y, width, height)
 
-class Map_Base:
+class Section:
 
     def __init__(self, x: int, y: int, width: int, height: int, minRoomSize: int, marge: int) -> None:
         """Représente une section de map, implémentée sous la forme d'un noeud d'un arbre binaire.
@@ -68,8 +69,8 @@ class Map_Base:
         self.minRoomSize = minRoomSize
         self.marge = marge
         self.minSize = minRoomSize +marge*2
-        self.leftChild = None
-        self.rightChild = None
+        self.leftChild: Section = None
+        self.rightChild: Section = None
         self.room: Room = None
     
     def split(self) -> bool:
@@ -99,11 +100,11 @@ class Map_Base:
         cut = randint(self.minSize, max) # split location
 
         if split_horiz:
-            self.leftChild = Map_Base(self.x, self.y, self.width, cut, self.minRoomSize, self.marge)
-            self.rightChild = Map_Base(self.x, self.y + cut, self.width, self.height - cut, self.minRoomSize, self.marge)
+            self.leftChild = Section(self.x, self.y, self.width, cut, self.minRoomSize, self.marge)
+            self.rightChild = Section(self.x, self.y + cut, self.width, self.height - cut, self.minRoomSize, self.marge)
         else:
-            self.leftChild = Map_Base(self.x, self.y, cut, self.height, self.minRoomSize, self.marge)
-            self.rightChild = Map_Base(self.x + cut, self.y, self.width - cut, self.height, self.minRoomSize, self.marge)
+            self.leftChild = Section(self.x, self.y, cut, self.height, self.minRoomSize, self.marge)
+            self.rightChild = Section(self.x + cut, self.y, self.width - cut, self.height, self.minRoomSize, self.marge)
 
         return True
 
@@ -146,6 +147,7 @@ class Map:
         assert self.maxSize > self.minSize and width > self.maxSize and height > self.maxSize
 
         self.root = Map_Base(0, 0, width, height, self.minRoomSize, marge)
+        self.root = Section(0, 0, width, height, self.minRoomSize, marge)
         self.maps_list = [self.root]
 
         did_split = True
