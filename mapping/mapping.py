@@ -5,7 +5,7 @@ from random import random, randint
 class Rectangle:
 
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
-        """Représente une forme rectangulaire basique.
+        """Modélise une forme rectangulaire basique.
 
         Args:
             - x (int): abscisse du rectangle
@@ -33,7 +33,7 @@ class Rectangle:
 class Room(Rectangle):
 
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
-        """Représente une salle contenue dans une `Map_Base`.
+        """Modélise une salle contenue dans une `Section`.
 
         Args:
             - x (int): abscisse de la salle
@@ -74,7 +74,7 @@ class Section:
         self.room: Room = None
     
     def split(self) -> bool:
-        """Sépare self en deux Map_Base (sections) qui deviennent ses noeuds enfants si cela est possible.
+        """Sépare self en deux Section qui deviennent ses noeuds enfants si cela est possible.
 
         Returns:
             - bool: split réussi
@@ -109,7 +109,7 @@ class Section:
         return True
 
     def create_rooms(self):
-        """Génère les salles de la Map_Base ou de ses enfants.
+        """Génère les salles de la Section ou de ses enfants.
         """
 
         if self.leftChild != None:
