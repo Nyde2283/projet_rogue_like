@@ -1,11 +1,16 @@
 from __future__ import annotations
-from typing import Tuple, List, Sequence
+from typing import Tuple, List, Sequence, Iterator
 from random import random, randint
 
 NORD = 'N'
 SUD = 'S'
 OUEST = 'O'
 EST = 'E'
+
+SOL = 0
+VIDE = -1
+MUR = 1
+PORTE = 2
 
 class Point:
 
@@ -24,11 +29,18 @@ class Point:
 
     def __eq__(self, __o: object) -> bool:
 
-        return type(__o) == Point and self.x == __o.x and self.y == __o.y
+        try:
+            return self.x == __o.x and self.y == __o.y
+        except:
+            return False
 
     def __str__(self) -> str:
 
         return f'({self.x}, {self.y})'
+
+    def __iter__(self) -> Iterator:
+
+        return iter([self.x, self.y])
 
 class Rectangle:
 
@@ -469,9 +481,30 @@ class Section(Rectangle):
             self.leftChild.create_linear_halls(root, maxLenth)
             self.rightChild.create_linear_halls(root, maxLenth)
 
+    def get_block(self, *args: Point | Tuple(int, int)):
+
+        match args:
+            case int(), int():
+                p = Point(*args)
+            case Point():
+                p = args[0]
+            case _:
+                raise TypeError
+
+        last = self.get_leafSection(*p)
+        if p in last.room:
+            return SOL
+        for door in last.doors_list:
+            if p == door:
+                return PORTE
+        for hall in last.halls_list:
+            if p in hall:
+                return SOL
+        return VIDE
+
 class Map:
 
-    def __init__(self, width: int, height: int, minRoomSize: int = 4, maxRoomSize: int = 10, marge: int = 1) -> None:
+    def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 2) -> None:
         """Représente la map d'un niveau.
 
         Args:
@@ -507,4 +540,35 @@ class Map:
                         did_split = True
         self.root.create_rooms()
         self.root.create_linear_halls(self.root, 20)
+
+    def get_matrice(self) -> list:
+
+        matrice = [[...]*self.width for _ in range(self.height)]
+        for x in range(self.width):
+            for y in range(self.height):
+                matrice[x][y] = self.root.get_block(x, y)
+        return matrice
+
+if __name__ == '__main__':
+
+    from PIL import Image
+    from time import time
+
+    lvl = Map(100, 100)
+    matrice = lvl.get_matrice()
+    print(matrice)
+    img = Image.new('RGB', (100, 100))
+    for x, ligne in zip(range(100), matrice):
+        for y, value in zip(range(100), ligne):
+            match value:
+                case -1:
+                    color = (0, 0, 0)
+                case 0:
+                    color = (44, 49, 89)
+                case 2:
+                    color = (230, 230, 230)
+                case _:
+                    raise ValueError
+            img.putpixel((x, y), color)
+    img.show()
 
