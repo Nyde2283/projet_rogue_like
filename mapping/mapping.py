@@ -243,6 +243,8 @@ class Section(Rectangle):
         self.leftChild: Section = None
         self.rightChild: Section = None
         self.room: Room = None
+        self.doors_list: List[Door] = []
+        self.halls_list: List[Hall] = []
     
     def split(self) -> bool:
         """Sépare self en deux Section qui deviennent ses noeuds enfants si cela est possible.
@@ -296,7 +298,176 @@ class Section(Rectangle):
             roomX = randint(self.marge, self.width - roomWidth - self.marge)
             roomY = randint(self.marge, self.height - roomHeight - self.marge)
 
-            self.room = Room(self.x + roomX, self.y + roomY, roomWidth, roomHeight)
+            self.room = Room(self.x + roomX, self.y + roomY, roomWidth, roomHeight, self)
+
+    def get_room(self, x: int, y: int) -> Room | None:
+        """Retourne la Room en (x, y) si elle existe sinon elle retourne None
+
+        Args:
+            x (int): abscisse
+            y (int): ordonnée
+
+        Returns:
+            Room | None
+        """
+
+        last = self.get_leafSection(x, y)
+        if (x, y) in last.room:
+            return last.room
+        return None
+
+    def is_room(self, x: int, y: int) -> bool:
+        """Indique si le bloque en (x, y) appartient à une salle.
+
+        Args:
+            x (int): abscisse du bloque
+            y (int): ordonnée du bloque
+
+        Returns:
+            bool: le bloque appartient à une salle
+        """
+
+        last = self.get_leafSection(x, y)
+        return (x, y) in last.room
+
+    def get_leafSection(self, x: int, y: int) -> Section | None:
+        """Retourne la section la plus basse de l'arbre au coordonnées (x, y).
+
+        Args:
+            x (int): abscisse
+            y (int): ordonnée
+
+        Returns:
+            Section | None
+        """
+
+        if self.leftChild == None:
+            return self
+        if self.width == self.leftChild.width: # split horizontal
+            if y >= self.rightChild.y:
+                return self.rightChild.get_leafSection(x, y)
+            return self.leftChild.get_leafSection(x, y)
+        else:
+            if x >= self.rightChild.x:
+                return self.rightChild.get_leafSection(x, y)
+            return self.leftChild.get_leafSection(x, y)
+
+    def is_hall(self, x: int, y: int):
+
+        last = self.get_leafSection(x, y)
+        for hall in last.halls_list:
+            if (x, y) in hall:
+                return True
+        return False
+
+    def _create_verti_halls(self, root: Section, maxLenth: int):
+
+        tradDirection = {NORD: -1, SUD: 1}
+
+        for y, direction in zip((self.room.y -1, self.room.bottom +1), (NORD, SUD)): # au dessus et en dessous de la salle
+            for x in range(self.room.x +1, self.room.right): # "à l'intérieur" de la salle
+                search = self.room.linear_search(root, x, y, direction, maxLenth)
+
+                if search == None: # recherche infructueuse
+                    continue
+
+                foundSection = root.get_leafSection(search.x, search.y +tradDirection[direction]) # section où se trouve la salle cible
+                canPlace = True
+                for hall in self.halls_list:
+                    if hall in foundSection.halls_list: # empêche de placer plusieurs couloirs entre 2 salles
+                        canPlace = False
+                if not canPlace:
+                    continue
+
+                P1 = Point(x, y)
+                P2 = search
+                door1 = Door(P1.x, P1.y)
+                door2 = Door(P2.x, P2.y)
+                if P1.y < P2.y: # si P1 est au dessus de P2
+                    newHall = Hall(
+                        P1.x,
+                        P1.y,
+                        1,
+                        P2.y - P1.y +1,
+                        [door1, door2]
+                    )
+                else: # si P1 est en dessous de P2
+                    newHall = Hall(
+                        P2.x,
+                        P2.y,
+                        1,
+                        P1.y - P2.y +1,
+                        [door2, door1]
+                    )
+                self.doors_list.append(door1)
+                foundSection.doors_list.append(door2)
+
+                lastSectionCrossed = None
+                for y_ in range(newHall.y, newHall.bottom +1): # ajout du couloir aux sections traversées
+                    sectionTested = root.get_leafSection(x, y_) # le x vient de la boucle plus haute
+                    if sectionTested == lastSectionCrossed:
+                        continue
+                    sectionTested.halls_list.append(newHall)
+                    lastSectionCrossed = sectionTested
+
+    def _create_horiz_halls(self, root: Section, maxLenth: int):
+
+        tradDirection = {OUEST: -1, EST: 1}
+
+        for x, direction in zip((self.room.x -1, self.room.right +1), (OUEST, EST)): # à droite et à gauche de la salle
+            for y in range(self.room.y +1, self.room.bottom): # "à l'intérieur" de la salle
+                search = self.room.linear_search(root, x, y, direction, maxLenth)
+
+                if search == None:
+                    continue
+
+                foundSection = root.get_leafSection(search.x +tradDirection[direction], search.y)
+                canPlace = True
+                for hall in self.halls_list:
+                    if hall in foundSection.halls_list:
+                        canPlace = False
+                if not canPlace:
+                    continue
+
+                P1 = Point(x, y)
+                P2 = search
+                door1 = Door(P1.x, P1.y)
+                door2 = Door(P2.x, P2.y)
+                if P1.x < P2.x: # si P1 est à gauche de P2
+                    newHall = Hall(
+                        P1.x,
+                        P1.y,
+                        P2.x - P1.x +1,
+                        1,
+                        [door1, door2]
+                    )
+                else:
+                    newHall = Hall(
+                        P2.x,
+                        P2.y,
+                        P1.x - P2.x +1,
+                        1,
+                        [door2, door1]
+                    )
+                self.doors_list.append(door1)
+                foundSection.doors_list.append(door2)
+
+                lastSectionCrossed = None
+                for x_ in range(newHall.x, newHall.right +1):
+                    sectionTested = root.get_leafSection(x_, y)
+                    if sectionTested == lastSectionCrossed:
+                        continue
+                    sectionTested.halls_list.append(newHall)
+                    lastSectionCrossed = sectionTested
+
+    def create_linear_halls(self, root: Section, maxLenth: int):
+
+        if self.room != None:
+            self._create_verti_halls(root, maxLenth)
+            self._create_horiz_halls(root, maxLenth)
+        else:
+            self.leftChild.create_linear_halls(root, maxLenth)
+            self.rightChild.create_linear_halls(root, maxLenth)
 
 class Map:
 
@@ -335,3 +506,5 @@ class Map:
                         self.maps_list.append(map.rightChild)
                         did_split = True
         self.root.create_rooms()
+        self.root.create_linear_halls(self.root, 20)
+
