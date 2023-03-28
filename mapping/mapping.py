@@ -14,7 +14,8 @@ class Rectangle:
             - height (int): hauteur du rectangle
         """
 
-        assert x>=0 and y>=0 and width>=0 and height>=0
+        if x < 0 or y < 0 or width < 0 or height < 0:
+            raise ValueError(f'Les coordoonées et les dimensions doivent être positive : Rectangle({x}, {y}, {width}, {height})')
         self.x = x
         self.y = y
         self.right = x + width -1
@@ -44,10 +45,10 @@ class Room(Rectangle):
 
         super().__init__(x, y, width, height)
 
-class Section:
 
-    def __init__(self, x: int, y: int, width: int, height: int, minRoomSize: int, marge: int) -> None:
-        """Représente une section de map, implémentée sous la forme d'un noeud d'un arbre binaire.
+class Section(Rectangle):
+
+    def __init__(self, x: int, y: int, width: int, height: int, minRoomSize: int, maxRoomSize: int, marge: int) -> None:
 
         leftChild et rightChild sont équivalents à topChild et bottomChild
 
@@ -60,15 +61,12 @@ class Section:
             - marge (int): espace entre une salle et le bord d'une section
         """
 
-        self.x = x
-        self.y = y
-        self.right = x + width -1
-        self.bottom = y + height -1
-        self.width = width
-        self.height = height
+        super().__init__(x, y, width, height)
         self.minRoomSize = minRoomSize
+        self.maxRoomSize = maxRoomSize
         self.marge = marge
         self.minSize = minRoomSize +marge*2
+        self.maxSize = maxRoomSize +marge*2
         self.leftChild: Section = None
         self.rightChild: Section = None
         self.room: Room = None
@@ -96,15 +94,17 @@ class Section:
                 max = self.width - self.minSize
         if max <= self.minSize: # plus assez de place
             return False
+        if max <= self.maxSize and random() > 0.1:
+            return False
 
         cut = randint(self.minSize, max) # split location
 
         if split_horiz:
-            self.leftChild = Section(self.x, self.y, self.width, cut, self.minRoomSize, self.marge)
-            self.rightChild = Section(self.x, self.y + cut, self.width, self.height - cut, self.minRoomSize, self.marge)
+            self.leftChild = Section(self.x, self.y, self.width, cut, self.minRoomSize, self.maxRoomSize, self.marge)
+            self.rightChild = Section(self.x, self.y + cut, self.width, self.height - cut, self.minRoomSize, self.maxRoomSize, self.marge)
         else:
-            self.leftChild = Section(self.x, self.y, cut, self.height, self.minRoomSize, self.marge)
-            self.rightChild = Section(self.x + cut, self.y, self.width - cut, self.height, self.minRoomSize, self.marge)
+            self.leftChild = Section(self.x, self.y, cut, self.height, self.minRoomSize, self.maxRoomSize, self.marge)
+            self.rightChild = Section(self.x + cut, self.y, self.width - cut, self.height, self.minRoomSize, self.maxRoomSize, self.marge)
 
         return True
 
@@ -116,10 +116,10 @@ class Section:
             self.leftChild.create_rooms()
             self.rightChild.create_rooms()
         else:
-            # la taille d'une room varie de minRoomSize x minRoomSize à la taille de la Map_base - la marge
+            # la taille d'une room varie de minRoomSize x minRoomSize à la taille de la Section - la marge
             roomWidth = randint(self.minRoomSize, self.width - self.marge*2)
             roomHeight = randint(self.minRoomSize, self.height - self.marge*2)
-            # place la map de façon à ce qu'elle ne colle pas les bords de la Map_Base
+            # place la map de façon à ce qu'elle ne colle pas les bords de la Section
             roomX = randint(self.marge, self.width - roomWidth - self.marge)
             roomY = randint(self.marge, self.height - roomHeight - self.marge)
 
@@ -143,11 +143,11 @@ class Map:
         self.minRoomSize = minRoomSize
         self.maxRoomSize = maxRoomSize
         self.minSize = minRoomSize +marge*2
-        self.maxSize = maxRoomSize +marge
-        assert self.maxSize > self.minSize and width > self.maxSize and height > self.maxSize
+        self.maxSize = maxRoomSize +marge*2
+        if self.maxSize <= self.minSize or width <= self.maxSize or height <= self.maxSize:
+            raise ValueError
 
-        self.root = Map_Base(0, 0, width, height, self.minRoomSize, marge)
-        self.root = Section(0, 0, width, height, self.minRoomSize, marge)
+        self.root = Section(0, 0, width, height, self.minRoomSize, self.maxRoomSize, marge)
         self.maps_list = [self.root]
 
         did_split = True
