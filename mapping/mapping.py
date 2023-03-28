@@ -1,6 +1,34 @@
-from typing import Tuple
+from __future__ import annotations
+from typing import Tuple, List, Sequence
 from random import random, randint
 
+NORD = 'N'
+SUD = 'S'
+OUEST = 'O'
+EST = 'E'
+
+class Point:
+
+    def __init__(self, x: int, y: int) -> None:
+        """Modélise un point.
+
+        Args:
+            - x (int): abscisse
+            - y (int): ordonnée
+        """
+
+        if x < 0 or y < 0:
+            raise ValueError(f'Les coordonnées doivent être positives : Point({x}, {y})')
+        self.x = x
+        self.y = y
+
+    def __eq__(self, __o: object) -> bool:
+
+        return type(__o) == Point and self.x == __o.x and self.y == __o.y
+
+    def __str__(self) -> str:
+
+        return f'({self.x}, {self.y})'
 
 class Rectangle:
 
@@ -23,12 +51,78 @@ class Rectangle:
         self.width = width
         self.height = height
 
-    def __contains__(self, other: Tuple[int, int]) -> bool:
+    def __contains__(self, __o: Tuple[int, int] | Point) -> bool:
 
-        abscisse = self.x <= other[0] <= self.right
-        ordoonee = self.y <= other[1] <= self.bottom
+        match __o:
+            case tuple():
+                abscisse = self.x <= __o[0] <= self.right
+                ordoonee = self.y <= __o[1] <= self.bottom
+            case Point():
+                abscisse = self.x <= __o.x <= self.right
+                ordoonee = self.y <= __o.y <= self.bottom
+            case _:
+                raise TypeError(f'type(__o) -> {type(__o)}')
         if abscisse and ordoonee:
             return True
+        return False
+
+    def __eq__(self, __o) -> bool:
+
+        return type(__o) == Rectangle and self.x == __o.x and self.y == __o.y and self.width == __o.width and self.height == __o.height
+
+    def __str__(self) -> str:
+
+        return f'[from ({self.x}, {self.y}) to ({self.right}, {self.bottom}) size({self.width} x {self.height})]'
+
+class Hall(Rectangle):
+
+    def __init__(self, x: int, y: int, width: int, height: int, doors: List[Door]) -> None:
+        """Modélise un couloir entre deux salles.
+
+        Args:
+            - x (int): abscisse
+            - y (int): ordonnée
+            - width (int): largeur
+            - height (int): hauteur
+            - doors (List[Door]): les deux portes du couloir
+        """
+
+        if len(doors) != 2:
+            raise ValueError(f'Il doit y avoir deux portes : Hall(..., {doors})')
+        super().__init__(x, y, width, height)
+        self.doors_list: List[Door] = doors
+
+    def __str__(self) -> str:
+
+        return super().__str__()
+
+class Door(Point):
+
+    def __init__(self, x: int, y: int) -> None:
+        """Modélise la porte d'une salle.
+
+        Args:
+            x (int): abscisse
+            y (int): ordonnée
+        """
+
+        super().__init__(x, y)
+
+    def is_around(self, x: int, y: int) -> bool:
+        """Méthode booléenne pour savoir si la porte est à côté du point en (x, y).
+
+        Args:
+            x (int): abscisse
+            y (int): ordonnée
+
+        Returns:
+            bool: si la porte est à côté
+        """
+
+        for x_ in range(x-1, x+2):
+            for y_ in range(y-1, y+2):
+                if x_ == self.x or y_ == self.y:
+                    return True
         return False
 
 class Room(Rectangle):
