@@ -127,7 +127,7 @@ class Door(Point):
 
 class Room(Rectangle):
 
-    def __init__(self, x: int, y: int, width: int, height: int) -> None:
+    def __init__(self, x: int, y: int, width: int, height: int, parentSection: Section) -> None:
         """Modélise une salle contenue dans une `Section`.
 
         Args:
@@ -135,14 +135,90 @@ class Room(Rectangle):
             - y (int): ordonnée de la salle
             - width (int): largeur de la salle
             - height (int): hauteur de la salle
+            - parentSection (Section): Section contenant la salle
         """
 
+        if type(parentSection) != Section:
+            raise TypeError(f'Not a Section : Room(..., {parentSection})')
         super().__init__(x, y, width, height)
+        self.parentSection = parentSection
 
+    def can_place_door(self, x: int, y: int) -> bool:
+        """Méthode booléenne donnant la possibilité ou non de placer une porte au coordoonées (x, y) pour la salle.
+
+        Args:
+            - x (int): abscisse de la supposée porte
+            - y (int): ordonnée de la supposée porte
+
+        Returns:
+            bool: possibilité de placer une porte en (x, y)
+        """
+
+        abscisse = self.x < x < self.right # est-ce que x est "à l'intérieur" de la salle
+        ordonnee = self.y < y < self.bottom # --------- y -------------------------------
+        for door in self.parentSection.doors_list:
+            if door.is_around(x, y) == True: # on vérifie qu'il n'y a pas déjà une porte à côté
+                return False
+
+        if abscisse and (y == self.y -1 or y == self.bottom +1):
+            return True
+        if ordonnee and (x == self.x -1 or x == self.right +1):
+            return True
+        return False
+
+    def linear_search(self, root: Section, x: int, y: int, direction: str, maxLenth: int) -> Point | None:
+
+        if maxLenth <= 0: # couloir trop long
+            return None
+
+        if root.is_hall(x-1, y) or root.is_hall(x-1, y+1) or root.is_hall(x, y+1) or root.is_hall(x+1, y+1) or root.is_hall(x+1, y) or root.is_hall(x+1, y-1) or root.is_hall(x, y-1) or root.is_hall(x-1, y-1):
+            return None
+
+        if x < root.x or x > root.right or y < root.y or y > root.bottom: # en dehors de la Map
+            return None
+
+        N = root.is_room(x, y-1)
+        E = root.is_room(x+1, y)
+        S = root.is_room(x, y+1)
+        O = root.is_room(x-1, y)
+        match direction:
+            case 'N':
+                if O or E: # si il y a une salle à côté du couloir
+                    return None
+                if N: # si il y a une salle au dessus du couloir
+                    if root.get_room(x, y-1).can_place_door(x, y):
+                        return Point(x, y)
+                    return None
+                return self.linear_search(root, x, y-1, direction, maxLenth -1)
+            case 'S':
+                if O or E:
+                    return None
+                if S:
+                    if root.get_room(x, y+1).can_place_door(x, y):
+                        return Point(x, y)
+                    return None
+                return self.linear_search(root, x, y+1, direction, maxLenth -1)
+            case 'O':
+                if N or S:
+                    return None
+                if O:
+                    if root.get_room(x-1, y).can_place_door(x, y):
+                        return Point(x, y)
+                    return None
+                return self.linear_search(root, x-1, y, direction, maxLenth -1)
+            case 'E':
+                if N or S:
+                    return None
+                if E:
+                    if root.get_room(x+1, y).can_place_door(x, y):
+                        return Point(x, y)
+                    return None
+                return self.linear_search(root, x+1, y, direction, maxLenth -1)
 
 class Section(Rectangle):
 
     def __init__(self, x: int, y: int, width: int, height: int, minRoomSize: int, maxRoomSize: int, marge: int) -> None:
+        """Modélise une section de map, implémentée sous la forme d'un noeud d'un arbre binaire.
 
         leftChild et rightChild sont équivalents à topChild et bottomChild
 
@@ -154,6 +230,9 @@ class Section(Rectangle):
             - minRoomSize (int): taille (largeur ou hauteur) minimale d'une salle contenue dans une section
             - marge (int): espace entre une salle et le bord d'une section
         """
+
+        if minRoomSize <= 2 or maxRoomSize < minRoomSize or marge < 0:
+            raise ValueError(f'Il y un problème dans les valeurs : Section(..., {minRoomSize}, {maxRoomSize}, {self.marge})')
 
         super().__init__(x, y, width, height)
         self.minRoomSize = minRoomSize
