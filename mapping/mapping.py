@@ -1,16 +1,13 @@
 from __future__ import annotations
-from typing import Tuple, List, Sequence, Iterator
+from typing import Tuple, List, Iterator, Dict
 from random import random, randint
+from PIL import Image
+import assets.map_bg
 
 NORD = 'N'
 SUD = 'S'
 OUEST = 'O'
 EST = 'E'
-
-SOL = 0
-VIDE = -1
-MUR = 1
-PORTE = 2
 
 class Point:
 
@@ -488,7 +485,6 @@ class Section(Rectangle):
             self.leftChild.create_linear_halls(root, maxLenth)
             self.rightChild.create_linear_halls(root, maxLenth)
 
-    def get_block(self, *args: Point | Tuple(int, int)):
     def create_room_walls(self):
 
         if self.room != None:
@@ -561,6 +557,7 @@ class Section(Rectangle):
         self.create_room_walls()
         self.create_hall_walls()
 
+    def get_bg_block(self, *args: Point | Tuple(int, int)) -> assets.map_bg.TextureBlock:
 
         match args:
             case int(), int():
@@ -572,14 +569,17 @@ class Section(Rectangle):
 
         last = self.get_leafSection(*p)
         if p in last.room:
-            return SOL
+            return assets.map_bg.GROUND
         for door in last.doors_list:
             if p == door:
-                return PORTE
+                return assets.map_bg.DOOR
+        for wall in last.walls_list:
+            if p in wall:
+                return assets.map_bg.WALL_BASE
         for hall in last.halls_list:
             if p in hall:
-                return SOL
-        return VIDE
+                return assets.map_bg.HALL
+        return assets.map_bg.VIDE
 
 class Map:
 
@@ -626,29 +626,20 @@ class Map:
         matrice = [[...]*self.width for _ in range(self.height)]
         for x in range(self.width):
             for y in range(self.height):
-                matrice[x][y] = self.root.get_block(x, y)
+                matrice[x][y] = self.root.get_bg_block(x, y)
         return matrice
 
-if __name__ == '__main__':
+    def get_layers(self) -> Dict[str, Image.Image]:
 
-    from PIL import Image
-    from time import time
+        matrice = self.get_matrice()
+        result = {
+            'bg': Image.new('RGBA', (16*self.width, 16*self.height), (0, 0, 0, 0))
+        }
 
-    lvl = Map(100, 100)
-    matrice = lvl.get_matrice()
-    print(matrice)
-    img = Image.new('RGB', (100, 100))
-    for x, ligne in zip(range(100), matrice):
-        for y, value in zip(range(100), ligne):
-            match value:
-                case -1:
-                    color = (0, 0, 0)
-                case 0:
-                    color = (44, 49, 89)
-                case 2:
-                    color = (230, 230, 230)
-                case _:
-                    raise ValueError
-            img.putpixel((x, y), color)
-    img.show()
-
+        for x in range(self.width):
+            for y in range(self.height):
+                x_img = 16*x
+                y_img = 16*y
+                block = matrice[x][y]
+                result['bg'].paste(assets.map_bg.textures[block.key], (x_img, y_img))
+        return result
