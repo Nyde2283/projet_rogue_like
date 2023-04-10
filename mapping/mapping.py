@@ -137,6 +137,12 @@ class Door(Point):
                     return True
         return False
 
+class Wall(Rectangle):
+
+    def __init__(self, x: int, y: int, width: int, height: int) -> None:
+
+        super().__init__(x, y, width, height)
+
 class Room(Rectangle):
 
     def __init__(self, x: int, y: int, width: int, height: int, parentSection: Section) -> None:
@@ -257,6 +263,7 @@ class Section(Rectangle):
         self.room: Room = None
         self.doors_list: List[Door] = []
         self.halls_list: List[Hall] = []
+        self.walls_list: List[Wall] = []
     
     def split(self) -> bool:
         """Sépare self en deux Section qui deviennent ses noeuds enfants si cela est possible.
@@ -482,6 +489,78 @@ class Section(Rectangle):
             self.rightChild.create_linear_halls(root, maxLenth)
 
     def get_block(self, *args: Point | Tuple(int, int)):
+    def create_room_walls(self):
+
+        if self.room != None:
+            doorsN = []
+            doorsS = []
+            doorsO = []
+            doorsE = []
+            for door in self.doors_list:
+                if door.x == self.room.x -1:
+                    doorsO += [door]
+                if door.x == self.room.right +1:
+                    doorsE += [door]
+                if door.y == self.room.y -1:
+                    doorsN += [door]
+                if door.y == self.room.bottom +1:
+                    doorsS += [door]
+
+            def check_walls_verti(doors: List[Door]):
+
+                for door in sorted(doors, key=lambda obj: obj.y):
+                    wrongWall = self.walls_list[-1]
+                    topWall = Wall(wrongWall.x, wrongWall.y, 1, door.y - wrongWall.y)
+                    bottomWall = Wall(wrongWall.x, door.y +1, 1, wrongWall.bottom - door.y)
+                    self.walls_list[-1] = topWall
+                    self.walls_list += [bottomWall]
+
+            self.walls_list += [Wall(self.room.x -1, self.room.y -2, 1, self.room.height +3)]
+            check_walls_verti(doorsO)
+            self.walls_list += [Wall(self.room.right +1, self.room.y -2, 1, self.room.height +3)]
+            check_walls_verti(doorsE)
+
+            def check_walls_horiz(doors: List[Door]):
+
+                for door in sorted(doors, key=lambda obj: obj.x):
+                    wrongWall = self.walls_list[-1]
+                    leftWall = Wall(wrongWall.x, wrongWall.y, door.x - wrongWall.x, wrongWall.height)
+                    rightWall = Wall(door.x +1, wrongWall.y, wrongWall.right - door.x, wrongWall.height)
+                    self.walls_list[-1] = leftWall
+                    self.walls_list += [rightWall]
+
+            self.walls_list += [Wall(self.room.x -1, self.room.y -2, self.room.width +2, 2)]
+            check_walls_horiz(doorsN)
+            self.walls_list += [Wall(self.room.x -1, self.room.bottom +1, self.room.width +2, 1)]
+            check_walls_horiz(doorsS)
+
+        else:
+            self.leftChild.create_room_walls()
+            self.rightChild.create_room_walls()
+
+    def create_hall_walls(self):
+
+        if self.room != None:
+            for hall in self.halls_list:
+                if hall.width == 1: # vertical
+                    leftWall = Wall(hall.x -1, hall.y, 1, hall.height)
+                    rightWall = Wall(hall.x +1, hall.y, 1, hall.height)
+                    self.walls_list += [leftWall, rightWall]
+
+                else: # horizontal
+                    topWall = Wall(hall.x, hall.y -2, hall.width, 2)
+                    bottomWall = Wall(hall.x, hall.y +1, hall.width, 1)
+                    self.walls_list += [topWall, bottomWall]
+
+        else:
+            self.leftChild.create_hall_walls()
+            self.rightChild.create_hall_walls()
+
+    def create_walls(self):
+
+        self.create_room_walls()
+        self.create_hall_walls()
+
 
         match args:
             case int(), int():
@@ -504,7 +583,7 @@ class Section(Rectangle):
 
 class Map:
 
-    def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 2) -> None:
+    def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 4) -> None:
         """Représente la map d'un niveau.
 
         Args:
@@ -540,6 +619,7 @@ class Map:
                         did_split = True
         self.root.create_rooms()
         self.root.create_linear_halls(self.root, 20)
+        self.root.create_walls()
 
     def get_matrice(self) -> list:
 
