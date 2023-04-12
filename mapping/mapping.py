@@ -173,9 +173,6 @@ class Room(Rectangle):
 
         abscisse = self.x+1 < x < self.right-1 # est-ce que x est "à l'intérieur" de la salle
         ordonnee = self.y+1 < y < self.bottom-1 # --------- y -------------------------------
-        for door in self.parentSection.doors_list:
-            if door.is_around(x, y) == True: # on vérifie qu'il n'y a pas déjà une porte à côté
-                return False
 
         if abscisse and (y == self.y -1 or y == self.bottom +1):
             return True
@@ -188,8 +185,12 @@ class Room(Rectangle):
         if maxLenth <= 0: # couloir trop long
             return None
 
-        if root.is_hall(x-1, y) or root.is_hall(x-1, y+1) or root.is_hall(x, y+1) or root.is_hall(x+1, y+1) or root.is_hall(x+1, y) or root.is_hall(x+1, y-1) or root.is_hall(x, y-1) or root.is_hall(x-1, y-1):
-            return None
+        for deltaX in (-1, 0, 1):
+            for deltaY in (-1, 0, 1):
+                if deltaX == 0 and deltaY == 0:
+                    continue
+                if root.is_hall(x +deltaX, y +deltaY): # si il y un couloir trop proche
+                    return None
 
         if x < root.x or x > root.right or y < root.y or y > root.bottom: # en dehors de la Map
             return None
@@ -612,12 +613,19 @@ class Map:
         self.maxRoomSize = maxRoomSize
         self.minSize = minRoomSize +marge*2
         self.maxSize = maxRoomSize +marge*2
+        self.marge = marge
         if self.maxSize <= self.minSize or width <= self.maxSize or height <= self.maxSize:
             raise ValueError
 
-        self.root = Section(0, 0, width, height, self.minRoomSize, self.maxRoomSize, marge)
-        self.maps_list = [self.root]
+        self._create()
+        while not self.is_no_bug():
+            self._create()
+        self.root.create_walls()
 
+    def _create(self):
+
+        self.root = Section(0, 0, self.width, self.height, self.minRoomSize, self.maxRoomSize, self.marge)
+        self.maps_list = [self.root]
         did_split = True
         while did_split:
             did_split = False
@@ -631,9 +639,8 @@ class Map:
                         did_split = True
         self.root.create_rooms()
         self.root.create_linear_halls(self.root, 20)
-        self.root.create_walls()
 
-    def get_matrice(self) -> List[List[map_bg.TextureBlock]]:
+    def _get_matrice(self) -> List[List[map_bg.TextureBlock]]:
 
         matrice = [[...]*self.width for _ in range(self.height)]
         for x in range(self.width):
@@ -694,7 +701,7 @@ class Map:
 
     def get_layers(self) -> Dict[str, Image.Image]:
 
-        matrice = self.get_matrice()
+        matrice = self._get_matrice()
         self._orientation_filter(matrice)
         result = {
             'bg': Image.new('RGBA', (16*self.width, 16*self.height), (0, 0, 0, 0))
@@ -731,10 +738,3 @@ class Map:
         if len(rooms_list) == len(foundedRooms):
             return True
         return False
-
-def genMap(width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 4) -> Map:
-
-    result = Map(width, height, minRoomSize, maxRoomSize, marge)
-    while not result.is_no_bug():
-        result = Map(width, height, minRoomSize, maxRoomSize, marge)
-    return result
