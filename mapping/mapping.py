@@ -99,6 +99,7 @@ class Hall(Rectangle):
             - width (int): largeur
             - height (int): hauteur
             - doors (List[Door]): les deux portes du couloir
+            - rooms (List[Room]): les deux salles reliées par le couloir
         """
 
         if len(doors) != 2:
@@ -139,6 +140,14 @@ class Door(Point):
 class Wall(Rectangle):
 
     def __init__(self, x: int, y: int, width: int, height: int) -> None:
+        """Modélise un mur.
+
+        Args:
+            - x (int): abscisse
+            - y (int): ordonnée
+            - width (int): largeur
+            - height (int): hauteur
+        """
 
         super().__init__(x, y, width, height)
 
@@ -246,6 +255,7 @@ class Section(Rectangle):
             - width (int): largeur de la section
             - height (int): hauteur de la section
             - minRoomSize (int): taille (largeur ou hauteur) minimale d'une salle contenue dans une section
+            - maxRoomSize (int): --------------------------- maximale -------------------------------------
             - marge (int): espace entre une salle et le bord d'une section
         """
 
@@ -323,8 +333,8 @@ class Section(Rectangle):
         """Retourne la Room en (x, y) si elle existe sinon elle retourne None
 
         Args:
-            x (int): abscisse
-            y (int): ordonnée
+            - x (int): abscisse
+            - y (int): ordonnée
 
         Returns:
             Room | None
@@ -339,8 +349,8 @@ class Section(Rectangle):
         """Indique si le bloque en (x, y) appartient à une salle.
 
         Args:
-            x (int): abscisse du bloque
-            y (int): ordonnée du bloque
+            - x (int): abscisse du bloque
+            - y (int): ordonnée du bloque
 
         Returns:
             bool: le bloque appartient à une salle
@@ -353,8 +363,8 @@ class Section(Rectangle):
         """Retourne la section la plus basse de l'arbre au coordonnées (x, y).
 
         Args:
-            x (int): abscisse
-            y (int): ordonnée
+            - x (int): abscisse
+            - y (int): ordonnée
 
         Returns:
             Section | None
@@ -371,7 +381,16 @@ class Section(Rectangle):
                 return self.rightChild.get_leafSection(x, y)
             return self.leftChild.get_leafSection(x, y)
 
-    def is_hall(self, x: int, y: int):
+    def is_hall(self, x: int, y: int) -> bool:
+        """Indique si le bloque en (x, y) appartient à un couloir.
+
+        Args:
+            - x (int): abscisse du bloque
+            - y (int): ordonnée du bloque
+
+        Returns:
+            bool: le bloque appartient à une salle
+        """
 
         last = self.get_leafSection(x, y)
         for hall in last.halls_list:
@@ -380,6 +399,12 @@ class Section(Rectangle):
         return False
 
     def _create_verti_halls(self, root: Section, maxLenth: int):
+        """Génère des couloirs verticaux.
+
+        Args:
+            - root (Section): Section racine (l'origine)
+            - maxLenth (int): longueur maximum d'un couloir
+        """
 
         tradDirection = {NORD: -1, SUD: 1}
 
@@ -400,8 +425,8 @@ class Section(Rectangle):
 
                 P1 = Point(x, y)
                 P2 = search
-                door1 = Door(P1.x, P1.y)
-                door2 = Door(P2.x, P2.y)
+                door1 = Door(*P1)
+                door2 = Door(*P2)
                 if P1.y < P2.y: # si P1 est au dessus de P2
                     newHall = Hall(
                         P1.x,
@@ -432,6 +457,12 @@ class Section(Rectangle):
                     lastSectionCrossed = sectionTested
 
     def _create_horiz_halls(self, root: Section, maxLenth: int):
+        """Génère des couloirs horizontaux.
+
+        Args:
+            - root (Section): Section racine (l'origine)
+            - maxLenth (int): longueur maximum d'un couloir
+        """
 
         tradDirection = {OUEST: -1, EST: 1}
 
@@ -452,8 +483,8 @@ class Section(Rectangle):
 
                 P1 = Point(x, y)
                 P2 = search
-                door1 = Door(P1.x, P1.y)
-                door2 = Door(P2.x, P2.y)
+                door1 = Door(*P1)
+                door2 = Door(*P2)
                 if P1.x < P2.x: # si P1 est à gauche de P2
                     newHall = Hall(
                         P1.x,
@@ -463,7 +494,7 @@ class Section(Rectangle):
                         [door1, door2],
                         [self.room, foundSection.room]
                     )
-                else:
+                else: # si P1 est à droite de P2
                     newHall = Hall(
                         P2.x,
                         P2.y,
@@ -483,16 +514,24 @@ class Section(Rectangle):
                     sectionTested.halls_list.append(newHall)
                     lastSectionCrossed = sectionTested
 
-    def create_linear_halls(self, root: Section, maxLenth: int):
+    def create_halls(self, root: Section, maxLenth: int):
+        """Génère les couloirs.
+
+        Args:
+            - root (Section): Section racine (l'origine)
+            - maxLenth (int): longueur maximum d'un couloir
+        """
 
         if self.room != None:
             self._create_verti_halls(root, maxLenth)
             self._create_horiz_halls(root, maxLenth)
         else:
-            self.leftChild.create_linear_halls(root, maxLenth)
-            self.rightChild.create_linear_halls(root, maxLenth)
+            self.leftChild.create_halls(root, maxLenth)
+            self.rightChild.create_halls(root, maxLenth)
 
-    def create_room_walls(self):
+    def _create_room_walls(self):
+        """Génère les murs des salles.
+        """
 
         if self.room != None:
             doorsN = []
@@ -510,38 +549,50 @@ class Section(Rectangle):
                     doorsS += [door]
 
             def check_walls_verti(doors: List[Door]):
+                """Sépare les murs verticaux en plusieurs parties pour ne pas couper les portes.
 
-                for door in sorted(doors, key=lambda obj: obj.y):
-                    wrongWall = self.walls_list[-1]
+                Args:
+                    - doors (List[Door]): liste des portes de la salle
+                """
+
+                for door in sorted(doors, key=lambda obj: obj.y): # tri les portes de haut en bas
+                    wrongWall = self.walls_list[-1] # le dernier mur coupe forcément une porte
                     topWall = Wall(wrongWall.x, wrongWall.y, 1, door.y - wrongWall.y)
                     bottomWall = Wall(wrongWall.x, door.y +1, 1, wrongWall.bottom - door.y)
                     self.walls_list[-1] = topWall
                     self.walls_list += [bottomWall]
 
-            self.walls_list += [Wall(self.room.x -1, self.room.y -2, 1, self.room.height +3)]
+            self.walls_list += [Wall(self.room.x -1, self.room.y -2, 1, self.room.height +3)] # mur de gauche
             check_walls_verti(doorsO)
-            self.walls_list += [Wall(self.room.right +1, self.room.y -2, 1, self.room.height +3)]
+            self.walls_list += [Wall(self.room.right +1, self.room.y -2, 1, self.room.height +3)] # mur de droite
             check_walls_verti(doorsE)
 
             def check_walls_horiz(doors: List[Door]):
+                """Sépare les murs horizontaux en plusieurs parties pour ne pas couper les portes.
 
-                for door in sorted(doors, key=lambda obj: obj.x):
-                    wrongWall = self.walls_list[-1]
+                Args:
+                    - doors (List[Door]): liste des portes de la salle
+                """
+
+                for door in sorted(doors, key=lambda obj: obj.x): # tri les portes de gauche à droite
+                    wrongWall = self.walls_list[-1] # le dernier mur coupe forcément une porte
                     leftWall = Wall(wrongWall.x, wrongWall.y, door.x - wrongWall.x, wrongWall.height)
                     rightWall = Wall(door.x +1, wrongWall.y, wrongWall.right - door.x, wrongWall.height)
                     self.walls_list[-1] = leftWall
                     self.walls_list += [rightWall]
 
-            self.walls_list += [Wall(self.room.x -1, self.room.y -2, self.room.width +2, 2)]
+            self.walls_list += [Wall(self.room.x -1, self.room.y -2, self.room.width +2, 2)] # mur du haut
             check_walls_horiz(doorsN)
-            self.walls_list += [Wall(self.room.x -1, self.room.bottom +1, self.room.width +2, 1)]
+            self.walls_list += [Wall(self.room.x -1, self.room.bottom +1, self.room.width +2, 1)] # mur du bas
             check_walls_horiz(doorsS)
 
         else:
-            self.leftChild.create_room_walls()
-            self.rightChild.create_room_walls()
+            self.leftChild._create_room_walls()
+            self.rightChild._create_room_walls()
 
-    def create_hall_walls(self):
+    def _create_hall_walls(self):
+        """Génère les murs des couloirs.
+        """
 
         if self.room != None:
             for hall in self.halls_list:
@@ -556,15 +607,25 @@ class Section(Rectangle):
                     self.walls_list += [topWall, bottomWall]
 
         else:
-            self.leftChild.create_hall_walls()
-            self.rightChild.create_hall_walls()
+            self.leftChild._create_hall_walls()
+            self.rightChild._create_hall_walls()
 
     def create_walls(self):
+        """Génère les murs.
+        """
 
-        self.create_room_walls()
-        self.create_hall_walls()
+        self._create_room_walls()
+        self._create_hall_walls()
 
     def get_bg_block(self, *args: Point | Tuple(int, int)) -> map_bg.TextureBlock:
+        """Retourne le bloque aux coordonnées (x, y).
+
+        Args:
+            - *args(Point | Tuple(int, int)): point de recherche
+
+        Returns:
+            map_bg.TextureBlock: bloque
+        """
 
         match args:
             case int(), int():
@@ -589,6 +650,11 @@ class Section(Rectangle):
         return map_bg.VIDE
 
     def get_rooms(self) -> List[Room]:
+        """Retourne la liste de toute les salles contenues dans la section.
+
+        Returns:
+            List[Room]: liste des salles
+        """
 
         if self.room != None:
             return [self.room]
@@ -596,14 +662,14 @@ class Section(Rectangle):
 
 class Map:
 
-    def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 4) -> None:
+    def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 3) -> None:
         """Représente la map d'un niveau.
 
         Args:
             - width (int): largeur de la map
             - height (int): hauteur de la map
             - minRoomSize (int): taille (largeur ou hauteur) minimale d'une salle contenue dans une section
-            - maxRoomSize (int): taille (largeur ou hauteur) maximale d'une salle contenue dans une section
+            - maxRoomSize (int): --------------------------- maximale -------------------------------------
             - marge (int): espace entre une salle et le bord d'une section
         """
 
@@ -618,11 +684,13 @@ class Map:
             raise ValueError
 
         self._create()
-        while not self.is_no_bug():
+        while not self._is_no_bug():
             self._create()
         self.root.create_walls()
 
     def _create(self):
+        """Génère la map.
+        """
 
         self.root = Section(0, 0, self.width, self.height, self.minRoomSize, self.maxRoomSize, self.marge)
         self.maps_list = [self.root]
@@ -638,9 +706,14 @@ class Map:
                         self.maps_list.append(map.rightChild)
                         did_split = True
         self.root.create_rooms()
-        self.root.create_linear_halls(self.root, 20)
+        self.root.create_halls(self.root, 20)
 
     def _get_matrice(self) -> List[List[map_bg.TextureBlock]]:
+        """Retourn la matrice représentant le map.
+
+        Returns:
+            List[List[map_bg.TextureBlock]]: matrice
+        """
 
         matrice = [[...]*self.width for _ in range(self.height)]
         for x in range(self.width):
@@ -648,7 +721,15 @@ class Map:
                 matrice[x][y] = self.root.get_bg_block(x, y)
         return matrice
 
-    def _wall_filter(self, setup: List[List[map_bg.TextureBlock]]):
+    def _wall_filter(self, setup: List[List[map_bg.TextureBlock]]) -> map_bg.TextureBlock:
+        """Retourne le mur correctement orienté en fonction du contexte.
+
+        Args:
+            - setup (List[List[map_bg.TextureBlock]]): contexte autour du bloque
+
+        Returns:
+            TextureBlock: bloque
+        """
 
         id_setup = [[block.id for block in ligne] for ligne in setup]
         if setup[1][1].id != 10:
@@ -687,6 +768,11 @@ class Map:
                 return map_bg.RAW_WALL
 
     def _orientation_filter(self, matrice: List[List[map_bg.TextureBlock]]):
+        """Oriente correctement les murs.
+
+        Args:
+            - matrice (List[List[map_bg.TextureBlock]]): matrice représentant la map
+        """
 
         for x in range(1, self.width -1):
             for y in range(1, self.height -1):
@@ -700,6 +786,11 @@ class Map:
                         matrice[x][y] = self._wall_filter(setup)
 
     def get_layers(self) -> Dict[str, Image.Image]:
+        """Retourne les couche d'images composant la map.
+
+        Returns:
+            Dict[str, Image.Image]: dictionnaire d'images
+        """
 
         matrice = self._get_matrice()
         self._orientation_filter(matrice)
@@ -716,6 +807,15 @@ class Map:
         return result
 
     def _check_link_between_rooms(self, startRoom: Room, crossedRooms: List[Room]) -> list[Room]:
+        """Détermine les salles reliées à `startRoom`.
+
+        Args:
+            - startRoom (Room): salles de départ
+            - crossedRooms (List[Room]): salles déjà visitées (automatiquement initialisée)
+
+        Returns:
+            list[Room]: salles trouvées
+        """
 
         if startRoom in crossedRooms:
             return crossedRooms
@@ -723,15 +823,20 @@ class Map:
         crossedRooms += [startRoom]
         otherRooms = []
         for hall in startRoom.parentSection.halls_list:
-            if hall.rooms_list[1] not in otherRooms and hall.rooms_list[0] == startRoom:
+            if hall.rooms_list[0] == startRoom:
                 otherRooms += [hall.rooms_list[1]]
-            elif hall.rooms_list[0] not in otherRooms:
+            else:
                 otherRooms += [hall.rooms_list[0]]
         for room in otherRooms:
             crossedRooms = self._check_link_between_rooms(room, crossedRooms)
         return crossedRooms
 
-    def is_no_bug(self) -> bool:
+    def _is_no_bug(self) -> bool:
+        """Détermine si la map s'est correctement générée.
+
+        Returns:
+            bool: la map s'est correctement générée.
+        """
 
         rooms_list = self.root.get_rooms()
         foundedRooms = self._check_link_between_rooms(rooms_list[0], [])
