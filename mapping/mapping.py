@@ -1,8 +1,10 @@
 from __future__ import annotations
 from typing import Tuple, List, Iterator, Dict
 from random import random, randint
+
 from PIL import Image
 import assets.map_bg
+
 
 NORD = 'N'
 SUD = 'S'
@@ -27,7 +29,7 @@ class Point:
     def __eq__(self, __o: object) -> bool:
 
         try:
-            return self.x == __o.x and self.y == __o.y
+            return isinstance(__o, Point) and self.x == __o.x and self.y == __o.y
         except:
             return False
 
@@ -77,7 +79,10 @@ class Rectangle:
 
     def __eq__(self, __o) -> bool:
 
-        return type(__o) == Rectangle and self.x == __o.x and self.y == __o.y and self.width == __o.width and self.height == __o.height
+        try:
+            return isinstance(__o, Rectangle) and self.x == __o.x and self.y == __o.y and self.width == __o.width and self.height == __o.height
+        except:
+            return False
 
     def __str__(self) -> str:
 
@@ -85,7 +90,7 @@ class Rectangle:
 
 class Hall(Rectangle):
 
-    def __init__(self, x: int, y: int, width: int, height: int, doors: List[Door]) -> None:
+    def __init__(self, x: int, y: int, width: int, height: int, doors: List[Door], rooms: List[Room]) -> None:
         """Modélise un couloir entre deux salles.
 
         Args:
@@ -100,10 +105,7 @@ class Hall(Rectangle):
             raise ValueError(f'Il doit y avoir deux portes : Hall(..., {doors})')
         super().__init__(x, y, width, height)
         self.doors_list: List[Door] = doors
-
-    def __str__(self) -> str:
-
-        return super().__str__()
+        self.rooms_list: List[Room] = rooms
 
 class Door(Point):
 
@@ -169,8 +171,8 @@ class Room(Rectangle):
             bool: possibilité de placer une porte en (x, y)
         """
 
-        abscisse = self.x < x < self.right # est-ce que x est "à l'intérieur" de la salle
-        ordonnee = self.y < y < self.bottom # --------- y -------------------------------
+        abscisse = self.x+1 < x < self.right-1 # est-ce que x est "à l'intérieur" de la salle
+        ordonnee = self.y+1 < y < self.bottom-1 # --------- y -------------------------------
         for door in self.parentSection.doors_list:
             if door.is_around(x, y) == True: # on vérifie qu'il n'y a pas déjà une porte à côté
                 return False
@@ -405,7 +407,8 @@ class Section(Rectangle):
                         P1.y,
                         1,
                         P2.y - P1.y +1,
-                        [door1, door2]
+                        [door1, door2],
+                        [self.room, foundSection.room]
                     )
                 else: # si P1 est en dessous de P2
                     newHall = Hall(
@@ -413,7 +416,8 @@ class Section(Rectangle):
                         P2.y,
                         1,
                         P1.y - P2.y +1,
-                        [door2, door1]
+                        [door2, door1],
+                        [foundSection.room, self.room]
                     )
                 self.doors_list.append(door1)
                 foundSection.doors_list.append(door2)
@@ -455,7 +459,8 @@ class Section(Rectangle):
                         P1.y,
                         P2.x - P1.x +1,
                         1,
-                        [door1, door2]
+                        [door1, door2],
+                        [self.room, foundSection.room]
                     )
                 else:
                     newHall = Hall(
@@ -463,7 +468,8 @@ class Section(Rectangle):
                         P2.y,
                         P1.x - P2.x +1,
                         1,
-                        [door2, door1]
+                        [door2, door1],
+                        [foundSection.room, self.room]
                     )
                 self.doors_list.append(door1)
                 foundSection.doors_list.append(door2)
@@ -581,6 +587,12 @@ class Section(Rectangle):
                 return assets.map_bg.HALL
         return assets.map_bg.VIDE
 
+    def get_rooms(self) -> List[Room]:
+
+        if self.room != None:
+            return [self.room]
+        return self.leftChild.get_rooms() + self.rightChild.get_rooms()
+
 class Map:
 
     def __init__(self, width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 4) -> None:
@@ -643,3 +655,34 @@ class Map:
                 block = matrice[x][y]
                 result['bg'].paste(assets.map_bg.textures[block.key], (x_img, y_img))
         return result
+
+    def _check_link_between_rooms(self, startRoom: Room, crossedRooms: List[Room]) -> list[Room]:
+
+        if startRoom in crossedRooms:
+            return crossedRooms
+
+        crossedRooms += [startRoom]
+        otherRooms = []
+        for hall in startRoom.parentSection.halls_list:
+            if hall.rooms_list[1] not in otherRooms and hall.rooms_list[0] == startRoom:
+                otherRooms += [hall.rooms_list[1]]
+            elif hall.rooms_list[0] not in otherRooms:
+                otherRooms += [hall.rooms_list[0]]
+        for room in otherRooms:
+            crossedRooms = self._check_link_between_rooms(room, crossedRooms)
+        return crossedRooms
+
+    def is_no_bug(self) -> bool:
+
+        rooms_list = self.root.get_rooms()
+        foundedRooms = self._check_link_between_rooms(rooms_list[0], [])
+        if len(rooms_list) == len(foundedRooms):
+            return True
+        return False
+
+def genMap(width: int, height: int, minRoomSize: int = 6, maxRoomSize: int = 15, marge: int = 4) -> Map:
+
+    result = Map(width, height, minRoomSize, maxRoomSize, marge)
+    while not result.is_no_bug():
+        result = Map(width, height, minRoomSize, maxRoomSize, marge)
+    return result

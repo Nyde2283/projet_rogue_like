@@ -1,8 +1,5 @@
-from time import time
+import pygame
 
 import mapping.mapping as mapping
 
-lvl = mapping.Map(100, 100)
-layers = lvl.get_layers()
-layers['bg'].show()
-layers['bg'].save(f'./img/{time()}.png')
+lvl_map = mapping.genMap(100, 100)
