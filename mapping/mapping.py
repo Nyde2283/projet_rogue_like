@@ -3,8 +3,8 @@ from typing import Tuple, List, Iterator, Dict
 from random import random, randint
 
 from PIL import Image
-import assets.map_bg
 
+import assets.map_bg as map_bg
 
 NORD = 'N'
 SUD = 'S'
@@ -563,7 +563,7 @@ class Section(Rectangle):
         self.create_room_walls()
         self.create_hall_walls()
 
-    def get_bg_block(self, *args: Point | Tuple(int, int)) -> assets.map_bg.TextureBlock:
+    def get_bg_block(self, *args: Point | Tuple(int, int)) -> map_bg.TextureBlock:
 
         match args:
             case int(), int():
@@ -575,17 +575,17 @@ class Section(Rectangle):
 
         last = self.get_leafSection(*p)
         if p in last.room:
-            return assets.map_bg.GROUND
+            return map_bg.GROUND
         for door in last.doors_list:
             if p == door:
-                return assets.map_bg.DOOR
+                return map_bg.GROUND_DOOR
         for wall in last.walls_list:
             if p in wall:
-                return assets.map_bg.WALL_BASE
+                return map_bg.RAW_WALL
         for hall in last.halls_list:
             if p in hall:
-                return assets.map_bg.HALL
-        return assets.map_bg.VIDE
+                return map_bg.GROUND_HALL
+        return map_bg.VIDE
 
     def get_rooms(self) -> List[Room]:
 
@@ -633,7 +633,7 @@ class Map:
         self.root.create_linear_halls(self.root, 20)
         self.root.create_walls()
 
-    def get_matrice(self) -> list:
+    def get_matrice(self) -> List[List[map_bg.TextureBlock]]:
 
         matrice = [[...]*self.width for _ in range(self.height)]
         for x in range(self.width):
@@ -641,9 +641,61 @@ class Map:
                 matrice[x][y] = self.root.get_bg_block(x, y)
         return matrice
 
+    def _wall_filter(self, setup: List[List[map_bg.TextureBlock]]):
+
+        id_setup = [[block.id for block in ligne] for ligne in setup]
+        if setup[1][1].id != 10:
+            raise ValueError
+
+        match id_setup:
+            case (_, map_bg.RAW_WALL.id, _), (_, _, _), (_, map_bg.GROUND.id, _):
+                return map_bg.WALL_BASE
+            case (_, map_bg.VIDE.id, _), (map_bg.RAW_WALL.id, _, map_bg.RAW_WALL.id), (_, map_bg.RAW_WALL.id, _):
+                return map_bg.WALL_N
+            case (_, map_bg.GROUND.id, _), (_, _, _), (_, map_bg.VIDE.id, _):
+                return map_bg.WALL_S
+            case (_, map_bg.RAW_WALL.id, _), (map_bg.VIDE.id, _, _), (_, map_bg.RAW_WALL.id, _):
+                return map_bg.WALL_O
+            case (_, map_bg.RAW_WALL.id, _), (_, _, map_bg.VIDE.id), (_, map_bg.RAW_WALL.id, _):
+                return map_bg.WALL_E
+
+            case (map_bg.VIDE.id, map_bg.VIDE.id, _), (map_bg.VIDE.id, _, _), (_, _, _):
+                return map_bg.WALL_NO
+            case (_, map_bg.VIDE.id, map_bg.VIDE.id), (_, _, map_bg.VIDE.id), (_, _, _):
+                return map_bg.WALL_NE
+            case (_, _, _), (_, _, map_bg.VIDE.id), (_, map_bg.VIDE.id, map_bg.VIDE.id):
+                return map_bg.WALL_SE
+            case (_, _, _), (map_bg.VIDE.id, _, _), (map_bg.VIDE.id, map_bg.VIDE.id, _):
+                return map_bg.WALL_SO
+
+            case (map_bg.VIDE.id, map_bg.RAW_WALL.id, _), (map_bg.RAW_WALL.id, _, _), (_, _, _):
+                return map_bg.WALL_NO_INT
+            case (_, map_bg.RAW_WALL.id, map_bg.VIDE.id), (_, _, map_bg.RAW_WALL.id), (_, _, _):
+                return map_bg.WALL_NE_INT
+            case (_, _, _), (_, _, map_bg.RAW_WALL.id), (_, map_bg.RAW_WALL.id, map_bg.VIDE.id):
+                return map_bg.WALL_SE_INT
+            case (_, _, _), (map_bg.RAW_WALL.id, _, _), (map_bg.VIDE.id, map_bg.RAW_WALL.id, _):
+                return map_bg.WALL_SO_INT
+            case _:
+                return map_bg.RAW_WALL
+
+    def _orientation_filter(self, matrice: List[List[map_bg.TextureBlock]]):
+
+        for x in range(1, self.width -1):
+            for y in range(1, self.height -1):
+                match matrice[x][y].id:
+                    case 10:
+                        setup = [
+                            [matrice[x-1][y-1], matrice[x][y-1], matrice[x+1][y-1]],
+                            [matrice[x-1][y], matrice[x][y], matrice[x+1][y]],
+                            [matrice[x-1][y+1], matrice[x][y+1], matrice[x+1][y+1]]
+                        ]
+                        matrice[x][y] = self._wall_filter(setup)
+
     def get_layers(self) -> Dict[str, Image.Image]:
 
         matrice = self.get_matrice()
+        self._orientation_filter(matrice)
         result = {
             'bg': Image.new('RGBA', (16*self.width, 16*self.height), (0, 0, 0, 0))
         }
@@ -653,7 +705,7 @@ class Map:
                 x_img = 16*x
                 y_img = 16*y
                 block = matrice[x][y]
-                result['bg'].paste(assets.map_bg.textures[block.key], (x_img, y_img))
+                result['bg'].paste(map_bg.textures[block.key], (x_img, y_img))
         return result
 
     def _check_link_between_rooms(self, startRoom: Room, crossedRooms: List[Room]) -> list[Room]:
