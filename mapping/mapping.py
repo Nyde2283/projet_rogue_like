@@ -3,6 +3,7 @@ from typing import Tuple, List, Iterator, Dict
 from random import random, randint
 
 from PIL import Image
+import pygame.image
 
 import assets.map_bg as map_bg
 
@@ -785,7 +786,7 @@ class Map:
                         ]
                         matrice[x][y] = self._wall_filter(setup)
 
-    def get_layers(self) -> Dict[str, Image.Image]:
+    def get_layers(self) -> Dict[str, pygame.Surface]:
         """Retourne les couche d'images composant la map.
 
         Returns:
@@ -794,7 +795,7 @@ class Map:
 
         matrice = self._get_matrice()
         self._orientation_filter(matrice)
-        result = {
+        layers = {
             'bg': Image.new('RGBA', (16*self.width, 16*self.height), (0, 0, 0, 0))
         }
 
@@ -803,8 +804,10 @@ class Map:
                 x_img = 16*x
                 y_img = 16*y
                 block = matrice[x][y]
-                result['bg'].paste(map_bg.textures[block.key], (x_img, y_img))
-        return result
+                layers['bg'].paste(map_bg.textures[block.key], (x_img, y_img))
+        for k, img in layers.items():
+            layers[k] = pygame.image.fromstring(img.tobytes(), img.size, img.mode).convert()
+        return layers
 
     def _check_link_between_rooms(self, startRoom: Room, crossedRooms: List[Room]) -> list[Room]:
         """Détermine les salles reliées à `startRoom`.
