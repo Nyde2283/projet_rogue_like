@@ -715,7 +715,7 @@ class Map:
             List[List[map_bg.TextureBlock]]: matrice
         """
 
-        matrice = [[...]*self.width for _ in range(self.height)]
+        matrice = [[...]*self.height for _ in range(self.width)]
         for x in range(self.width):
             for y in range(self.height):
                 matrice[x][y] = self.root.get_bg_block(x, y)
